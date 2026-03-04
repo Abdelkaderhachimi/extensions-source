@@ -49,7 +49,9 @@ import javax.crypto.Cipher
 import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
 import kotlin.io.encoding.Base64
+import kotlin.io.encoding.ExperimentalEncodingApi
 
+@OptIn(ExperimentalEncodingApi::class)
 class ProChan : HttpSource() {
     override val name = "ProChan"
     override val lang = "ar"
@@ -74,6 +76,7 @@ class ProChan : HttpSource() {
     override fun headersBuilder() = super.headersBuilder()
         .set("Referer", "$baseUrl/")
         .set("Origin", baseUrl)
+        .set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36")
 
     private val rscHeaders = headersBuilder()
         .set("rsc", "1")
@@ -434,7 +437,8 @@ class ProChan : HttpSource() {
             is ScrambledImageToken -> decodeScrambledImageToken(scrambledData)
         }
 
-        val (puzzleMode, layout) = scrambledImage.mode.split("_", limit = 2)
+        val puzzleMode = scrambledImage.mode.substringBefore("_")
+        val layout = scrambledImage.mode.substringAfter("_", "")
 
         require(scrambledImage.dim.size >= 2) { "Invalid dim: ${scrambledImage.dim}" }
 
