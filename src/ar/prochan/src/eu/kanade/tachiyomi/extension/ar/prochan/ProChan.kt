@@ -1,13 +1,18 @@
 package eu.kanade.tachiyomi.extension.ar.prochan
 
+import android.content.SharedPreferences
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.util.Log
+import android.widget.Toast
+import androidx.preference.ListPreference
+import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.POST
 import eu.kanade.tachiyomi.network.asObservableSuccess
 import eu.kanade.tachiyomi.network.await
 import eu.kanade.tachiyomi.network.interceptor.rateLimit
+import eu.kanade.tachiyomi.source.ConfigurableSource
 import eu.kanade.tachiyomi.source.model.Filter
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.MangasPage
@@ -19,6 +24,7 @@ import keiyoushi.lib.cookieinterceptor.CookieInterceptor
 import keiyoushi.utils.extractNextJs
 import keiyoushi.utils.extractNextJsRsc
 import keiyoushi.utils.firstInstance
+import keiyoushi.utils.getPreferencesLazy
 import keiyoushi.utils.parseAs
 import keiyoushi.utils.toJsonString
 import keiyoushi.utils.tryParse
@@ -53,17 +59,18 @@ import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
 
 @OptIn(ExperimentalEncodingApi::class)
-class ProChan : HttpSource() {
+class ProChan :
+    HttpSource(),
+    ConfigurableSource {
     override val name = "ProChan"
     override val lang = "ar"
-    private val domain = "prochan.net"
-    override val baseUrl = "https://$domain"
+    private val preferences: SharedPreferences by getPreferencesLazy()
+    private val domain get() = baseUrl.substringAfter("//")
+    override val baseUrl by lazy { preferences.getString(DOMAIN_PREF, DEFAULT_DOMAIN)!! }
     override val supportsLatest = true
-    override val versionId = 5
+    override val versionId = 6
 
     override val client = network.cloudflareClient.newBuilder()
-        .rateLimit(2)
-        .addInterceptor(::scrambledImageInterceptor)
         .addInterceptor(
             CookieInterceptor(
                 domain,
@@ -73,17 +80,25 @@ class ProChan : HttpSource() {
                 ),
             ),
         )
+        .addInterceptor(::scrambledImageInterceptor)
+        .rateLimit(1)
         .build()
 
     override fun headersBuilder() = super.headersBuilder()
         .set("Referer", "$baseUrl/")
         .set("Origin", baseUrl)
-        .set("Accept-Language", "ar,en-US;q=0.9,en;q=0.8")
-        .set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36")
-
-    private val rscHeaders = headersBuilder()
-        .set("RSC", "1")
-        .build()
+        .set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7")
+        .set("Accept-Language", "ar-EG,ar;q=0.9,en-US;q=0.8,en;q=0.7")
+        .set("Cache-Control", "max-age=0")
+        .set("Sec-CH-UA", "\"Not(A:Brand\";v=\"99\", \"Google Chrome\";v=\"133\", \"Chromium\";v=\"133\"")
+        .set("Sec-CH-UA-Mobile", "?1")
+        .set("Sec-CH-UA-Platform", "\"Android\"")
+        .set("Sec-Fetch-Dest", "document")
+        .set("Sec-Fetch-Mode", "navigate")
+        .set("Sec-Fetch-Site", "same-origin")
+        .set("Sec-Fetch-User", "?1")
+        .set("Upgrade-Insecure-Requests", "1")
+        .set("User-Agent", DEFAULT_USER_AGENT)
 
     override fun fetchPopularManga(page: Int): Observable<MangasPage> {
         val filters = getFilterList().apply {
@@ -226,12 +241,13 @@ class ProChan : HttpSource() {
         TagFilter(),
     )
 
-    override fun mangaDetailsRequest(manga: SManga): Request = GET(getMangaUrl(manga), rscHeaders)
+    override fun mangaDetailsRequest(manga: SManga): Request = GET(getMangaUrl(manga), headers)
 
     override fun getMangaUrl(manga: SManga): String = "$baseUrl${manga.url}"
 
     override fun mangaDetailsParse(response: Response): SManga {
-        val manga = response.extractNextJs<Series>()!!.series
+        val manga = response.extractNextJs<Series>()?.series
+            ?: throw Exception("لم يتم العثور على بيانات العمل. حاول فتح الموقع في المتصفح.")
 
         return SManga.create().apply {
             url = "/series/${manga.type}/${manga.id}/${manga.slug}"
@@ -292,10 +308,11 @@ class ProChan : HttpSource() {
         }
     }
 
-    override fun chapterListRequest(manga: SManga) = GET(getMangaUrl(manga), rscHeaders)
+    override fun chapterListRequest(manga: SManga) = GET(getMangaUrl(manga), headers)
 
     override fun chapterListParse(response: Response): List<SChapter> {
-        val data = response.extractNextJs<InitialChapters>()!!
+        val data = response.extractNextJs<InitialChapters>()
+            ?: throw Exception("لم يتم العثور على قائمة الفصول. حاول فتح الموقع في المتصفح.")
         val chapters = data.initialChapters.toMutableList()
         val size = chapters.size
         var page = 2
@@ -353,7 +370,7 @@ class ProChan : HttpSource() {
 
     private val dateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.ROOT)
 
-    override fun pageListRequest(chapter: SChapter): Request = GET(getChapterUrl(chapter), rscHeaders)
+    override fun pageListRequest(chapter: SChapter): Request = GET(getChapterUrl(chapter), headers)
 
     override fun getChapterUrl(chapter: SChapter): String {
         val url = if (chapter.url.startsWith("{")) {
@@ -591,8 +608,25 @@ class ProChan : HttpSource() {
         .withPadding(Base64.PaddingOption.PRESENT_OPTIONAL)
         .decode(data)
 
+    override fun setupPreferenceScreen(screen: PreferenceScreen) {
+        val domainPref = ListPreference(screen.context).apply {
+            key = DOMAIN_PREF
+            title = "النطاق (Domain)"
+            entries = arrayOf("prochan.net", "prochan.pro")
+            entryValues = arrayOf("https://prochan.net", "https://prochan.pro")
+            setDefaultValue(DEFAULT_DOMAIN)
+            summary = "%s"
+
+            setOnPreferenceChangeListener { _, _ ->
+                Toast.makeText(screen.context, "يرجى إعادة تشغيل التطبيق لتطبيق التغييرات", Toast.LENGTH_LONG).show()
+                true
+            }
+        }
+        screen.addPreference(domainPref)
+    }
+
     private fun countViews(seriesId: String, chapterId: String? = null) {
-        val userAgent = headers["User-Agent"]!!
+        val userAgent = DEFAULT_USER_AGENT
         val payload = ViewsDto(
             chapterId = chapterId?.toInt(),
             contentId = seriesId.toInt(),
@@ -636,3 +670,7 @@ private const val SCRAMBLED_IMAGE_HOST = "127.0.0.1"
 private val JSON_MEDIA_TYPE = "application/json".toMediaType()
 private val MOBILE_REGEX = Regex("mobile|android|iphone|ipad|ipod", RegexOption.IGNORE_CASE)
 private val TABLES_REGEX = Regex("tablet", RegexOption.IGNORE_CASE)
+
+private const val DEFAULT_USER_AGENT = "Mozilla/5.0 (Linux; Android 13; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Mobile Safari/537.36"
+private const val DOMAIN_PREF = "preferred_domain"
+private const val DEFAULT_DOMAIN = "https://prochan.net"
