@@ -87,18 +87,28 @@ class ProChan :
     override fun headersBuilder() = super.headersBuilder()
         .set("Referer", "$baseUrl/")
         .set("Origin", baseUrl)
-        .set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7")
         .set("Accept-Language", "ar-EG,ar;q=0.9,en-US;q=0.8,en;q=0.7")
-        .set("Cache-Control", "max-age=0")
         .set("Sec-CH-UA", "\"Not(A:Brand\";v=\"99\", \"Google Chrome\";v=\"133\", \"Chromium\";v=\"133\"")
         .set("Sec-CH-UA-Mobile", "?1")
         .set("Sec-CH-UA-Platform", "\"Android\"")
+        .set("User-Agent", DEFAULT_USER_AGENT)
+        .set("X-Requested-With", "XMLHttpRequest")
+
+    private fun htmlHeaders() = headersBuilder()
+        .set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7")
         .set("Sec-Fetch-Dest", "document")
         .set("Sec-Fetch-Mode", "navigate")
         .set("Sec-Fetch-Site", "same-origin")
         .set("Sec-Fetch-User", "?1")
         .set("Upgrade-Insecure-Requests", "1")
-        .set("User-Agent", DEFAULT_USER_AGENT)
+        .build()
+
+    private fun apiHeaders() = headersBuilder()
+        .set("Accept", "application/json, text/plain, */*")
+        .set("Sec-Fetch-Dest", "empty")
+        .set("Sec-Fetch-Mode", "cors")
+        .set("Sec-Fetch-Site", "same-origin")
+        .build()
 
     override fun fetchPopularManga(page: Int): Observable<MangasPage> {
         val filters = getFilterList().apply {
@@ -156,6 +166,9 @@ class ProChan :
         return client.newCall(searchMangaRequest(pageNumber[key]!!, query, filters))
             .asObservableSuccess()
             .map { response ->
+                if (response.header("Content-Type")?.contains("application/json") != true) {
+                    throw Exception("يرجى حل الكابتشا في المتصفح (WebView)")
+                }
                 val statusFilter = filters.firstInstance<StatusFilter>().selected
                 val genreFilter = filters.firstInstance<GenreFilter>()
                 val tagFilter = filters.firstInstance<TagFilter>()
@@ -213,6 +226,7 @@ class ProChan :
     }
 
     override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request {
+        val headers = apiHeaders()
         val url = "$baseUrl/api/public/series/search".toHttpUrl().newBuilder().apply {
             addQueryParameter("status", "approved")
             addQueryParameter("limit", "18")
@@ -241,7 +255,7 @@ class ProChan :
         TagFilter(),
     )
 
-    override fun mangaDetailsRequest(manga: SManga): Request = GET(getMangaUrl(manga), headers)
+    override fun mangaDetailsRequest(manga: SManga): Request = GET(getMangaUrl(manga), htmlHeaders())
 
     override fun getMangaUrl(manga: SManga): String = "$baseUrl${manga.url}"
 
@@ -255,7 +269,7 @@ class ProChan :
             artist = manga.metadata.artist.joinToString()
             author = manga.metadata.author.joinToString()
             description = buildString {
-                manga.description?.also { append(it.trim(), "\n\n") }
+                manga.description?.also { append(it.trim()).append("\n\n") }
                 buildList {
                     addAll(manga.metadata.altTitles)
                     manga.metadata.originalTitle?.also { add(it) }
@@ -308,30 +322,28 @@ class ProChan :
         }
     }
 
-    override fun chapterListRequest(manga: SManga) = GET(getMangaUrl(manga), headers)
+    override fun chapterListRequest(manga: SManga) = GET(getMangaUrl(manga), htmlHeaders())
 
     override fun chapterListParse(response: Response): List<SChapter> {
         val data = response.extractNextJs<InitialChapters>()
             ?: throw Exception("لم يتم العثور على قائمة الفصول. حاول فتح الموقع في المتصفح.")
         val chapters = data.initialChapters.toMutableList()
-        val size = chapters.size
-        var page = 2
         val type = response.request.url.pathSegments[1]
         val id = response.request.url.pathSegments[2]
         val slug = response.request.url.pathSegments[3]
 
-        while (data.totalChapters > chapters.size) {
-            val request = GET("$baseUrl/api/public/$type/$id/chapters?page=${page++}&limit=$size&order=desc", headers)
+        if (data.totalChapters > chapters.size) {
+            val request = GET("$baseUrl/api/public/$type/$id/chapters?page=1&limit=500&order=desc", apiHeaders())
             val nextChapters = client.newCall(request).execute()
-                .also {
-                    if (!it.isSuccessful) {
-                        it.close()
-                        throw Exception("HTTP ${it.code}")
-                    }
+            if (nextChapters.isSuccessful && nextChapters.header("Content-Type")?.contains("application/json") == true) {
+                try {
+                    val nextData = nextChapters.parseAs<Data<List<Chapter>>>()
+                    chapters.clear()
+                    chapters.addAll(nextData.data)
+                } catch (e: Exception) {
+                    Log.e(name, "Failed to parse chapters API response", e)
                 }
-                .parseAs<Data<List<Chapter>>>()
-
-            chapters.addAll(nextChapters.data)
+            }
         }
 
         countViews(id)
@@ -370,7 +382,7 @@ class ProChan :
 
     private val dateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.ROOT)
 
-    override fun pageListRequest(chapter: SChapter): Request = GET(getChapterUrl(chapter), headers)
+    override fun pageListRequest(chapter: SChapter): Request = GET(getChapterUrl(chapter), htmlHeaders())
 
     override fun getChapterUrl(chapter: SChapter): String {
         val url = if (chapter.url.startsWith("{")) {
@@ -498,11 +510,7 @@ class ProChan :
                         // use Tachiyomi ImageDecoder because android.graphics.BitmapFactory doesn't handle avif
                         val decoder = ImageDecoder.newInstance(body.byteStream())
                             ?: throw Exception("Failed to create decoder")
-                        try {
-                            decoder.decode() ?: throw Exception("Failed to decode piece")
-                        } finally {
-                            decoder.recycle()
-                        }
+                        decoder.decode() ?: throw Exception("Failed to decode piece")
                     }
                 }
             }.awaitAll()
@@ -569,29 +577,39 @@ class ProChan :
         val encryptedData = urlSafeBase64(value.data)
 
         val key = when (value.m) {
-            "browser" if value.v == 2 -> {
-                val hash = MessageDigest.getInstance("SHA-256")
-                    .digest(
-                        "prochan-browser-map:2e6f9a1c4d8b7e3f0a5c9d2b6e1f4a8c7d3b0e6a9f2c5d8b1e4a7c0d3f6b9e2:${value.cid}"
-                            .toByteArray(Charsets.UTF_8),
-                    )
-                SecretKeySpec(hash, "AES")
+            "browser" -> {
+                if (value.v == 2) {
+                    val hash = MessageDigest.getInstance("SHA-256")
+                        .digest(
+                            "prochan-browser-map:2e6f9a1c4d8b7e3f0a5c9d2b6e1f4a8c7d3b0e6a9f2c5d8b1e4a7c0d3f6b9e2:${value.cid}"
+                                .toByteArray(Charsets.UTF_8),
+                        )
+                    SecretKeySpec(hash, "AES")
+                } else {
+                    throw Exception("Unknown version: ${value.v}")
+                }
             }
             // Untested, couldn't find a chapter which uses this, possibly for paid chapters?
-            "browser_session" if value.v == 3 -> synchronized(sessionKeyLock) {
-                val time = System.currentTimeMillis()
-                val key = sessionKey[value.cid]?.takeIf { it.second > time }?.first ?: run {
-                    val request = GET("$baseUrl/chapter-map-session-key/${value.cid}", headers)
-                    val response = client.newCall(request).execute().parseAs<Data<Key>>()
+            "browser_session" -> {
+                if (value.v == 3) {
+                    synchronized(sessionKeyLock) {
+                        val time = System.currentTimeMillis()
+                        val key = sessionKey[value.cid]?.takeIf { it.second > time }?.first ?: run {
+                            val request = GET("$baseUrl/chapter-map-session-key/${value.cid}", headers)
+                            val response = client.newCall(request).execute().parseAs<Data<Key>>()
 
-                    sessionKey[value.cid] = response.data.key to (time + 120000)
+                            sessionKey[value.cid] = response.data.key to (time + 120000)
 
-                    response.data.key
+                            response.data.key
+                        }
+
+                        SecretKeySpec(urlSafeBase64(key), "AES")
+                    }
+                } else {
+                    throw Exception("Unknown version: ${value.v}")
                 }
-
-                SecretKeySpec(urlSafeBase64(key), "AES")
             }
-            else -> throw Exception("Unknown method")
+            else -> throw Exception("Unknown method: ${value.m}")
         }
 
         val cipher = Cipher.getInstance("AES/GCM/NoPadding").apply {
