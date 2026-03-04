@@ -7,6 +7,7 @@ import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.POST
 import eu.kanade.tachiyomi.network.asObservableSuccess
 import eu.kanade.tachiyomi.network.await
+import eu.kanade.tachiyomi.network.interceptor.rateLimit
 import eu.kanade.tachiyomi.source.model.Filter
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.MangasPage
@@ -61,8 +62,9 @@ class ProChan : HttpSource() {
     override val versionId = 5
 
     override val client = network.cloudflareClient.newBuilder()
+        .rateLimit(2)
         .addInterceptor(::scrambledImageInterceptor)
-        .addNetworkInterceptor(
+        .addInterceptor(
             CookieInterceptor(
                 domain,
                 listOf(
@@ -76,10 +78,11 @@ class ProChan : HttpSource() {
     override fun headersBuilder() = super.headersBuilder()
         .set("Referer", "$baseUrl/")
         .set("Origin", baseUrl)
+        .set("Accept-Language", "ar,en-US;q=0.9,en;q=0.8")
         .set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36")
 
     private val rscHeaders = headersBuilder()
-        .set("rsc", "1")
+        .set("RSC", "1")
         .build()
 
     override fun fetchPopularManga(page: Int): Observable<MangasPage> {
