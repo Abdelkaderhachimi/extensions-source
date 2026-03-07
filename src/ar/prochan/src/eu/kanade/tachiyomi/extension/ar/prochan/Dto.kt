@@ -19,13 +19,13 @@ import kotlinx.serialization.json.jsonObject
 
 @Serializable
 class MetaData<T>(
-    val data: List<T>,
-    val meta: Meta,
+    val data: List<T> = emptyList(),
+    val meta: Meta? = null,
 ) {
     @Serializable
     class Meta(
-        private val pages: Int,
-        private val page: Int,
+        private val pages: Int = 0,
+        private val page: Int = 0,
     ) {
         fun hasNextPage() = pages > page
     }
@@ -33,7 +33,7 @@ class MetaData<T>(
 
 @Serializable
 class Data<T>(
-    val data: T,
+    val data: T? = null,
 )
 
 @Serializable
