@@ -65,7 +65,7 @@ class ProChan :
     private val domain get() = baseUrl.substringAfter("//")
     override val baseUrl by lazy { preferences.getString(DOMAIN_PREF, DEFAULT_DOMAIN)!! }
     override val supportsLatest = true
-    override val versionId = 7
+    override val versionId = 8
 
     override val client = network.cloudflareClient.newBuilder()
         .addInterceptor(
