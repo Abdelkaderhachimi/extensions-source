@@ -51,18 +51,33 @@ import javax.crypto.spec.SecretKeySpec
 import kotlin.io.encoding.Base64
 
 class ProChan : HttpSource() {
+class ProChan : HttpSource(), ConfigurableSource {
     override val name = "ProChan"
     override val lang = "ar"
-    private val domain = "prochan.net"
-    override val baseUrl = "https://$domain"
+    
+    // إعداد التفضيلات لقراءة الرابط المخصص
+    private val preferences: SharedPreferences by lazy {
+        Injekt.get<Application>().getSharedPreferences("source_$id", Context.MODE_PRIVATE)
+    }
+
+    // الرابط الأساسي يقرأ من الإعدادات أو يستخدم الافتراضي إذا لم يتم تغييره
+    override val baseUrl: String by lazy {
+        preferences.getString(BASE_URL_PREF, "https://prochan.net")!!.removeSuffix("/")
+    }
+
+    // استخراج الدومين تلقائياً من الرابط المدخل لاستخدامه في الكوكيز
+    private val domain: String by lazy {
+        baseUrl.replace("https://", "").replace("http://", "").split("/")[0]
+    }
+
     override val supportsLatest = true
-    override val versionId = 5
+    override val versionId = 6
 
     override val client = network.cloudflareClient.newBuilder()
         .addInterceptor(::scrambledImageInterceptor)
         .addNetworkInterceptor(
             CookieInterceptor(
-                domain,
+                domain, // يستخدم الدومين المستخرج ديناميكياً
                 listOf(
                     "safe_browsing" to "off",
                     "language" to "ar",
@@ -78,6 +93,33 @@ class ProChan : HttpSource() {
     private val rscHeaders = headersBuilder()
         .set("rsc", "1")
         .build()
+
+    // إضافة خانات الإعدادات في واجهة التطبيق
+    override fun setupPreferenceScreen(screen: PreferenceScreen) {
+        EditTextPreference(screen.context).apply {
+            key = BASE_URL_PREF
+            title = "تغيير رابط الموقع"
+            summary = "الرابط الحالي: $baseUrl"
+            defaultValue = "https://prochan.net"
+            dialogTitle = "أدخل الرابط الجديد"
+        }.let(screen::addPreference)
+
+        SwitchPreferenceCompat(screen.context).apply {
+            key = HIDE_PAID_PREF
+            title = "إخفاء الفصول المدفوعة"
+            summary = "عدم إظهار الفصول التي تتطلب عملات أو اشتراك"
+            setDefaultValue(true)
+        }.let(screen::addPreference)
+    }
+
+    companion object {
+        private const val BASE_URL_PREF = "override_base_url"
+        private const val HIDE_PAID_PREF = "hide_paid_chapters"
+    }
+
+    // ... باقي الدوال (fetchSearchManga، إلخ)
+}
+
 
     override fun fetchPopularManga(page: Int): Observable<MangasPage> {
         val filters = getFilterList().apply {
