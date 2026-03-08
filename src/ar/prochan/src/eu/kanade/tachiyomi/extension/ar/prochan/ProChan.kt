@@ -62,7 +62,7 @@ class ProChan :
     override val name = "ProChan"
     override val lang = "ar"
     private val preferences: SharedPreferences by getPreferencesLazy()
-    private val domain get() = baseUrl.substringAfter("//")
+    private val domain get() = baseUrl.substringAfter("https://prochan.net/")
     override val baseUrl by lazy { preferences.getString(DOMAIN_PREF, DEFAULT_DOMAIN)!! }
     override val supportsLatest = true
     override val versionId = 8
@@ -82,7 +82,7 @@ class ProChan :
         .build()
 
     override fun headersBuilder() = super.headersBuilder()
-        .set("Referer", "$baseUrl/")
+        .set("Referer", "https://prochan.net//")
         .set("Origin", baseUrl)
         .set("Accept-Language", "ar-EG,ar;q=0.9,en-US;q=0.8,en;q=0.7")
         .set("Sec-CH-UA", "\"Not(A:Brand\";v=\"99\", \"Google Chrome\";v=\"133\", \"Chromium\";v=\"133\"")
@@ -122,12 +122,12 @@ class ProChan :
 
         val mangas = data.data.filter { it.type in SUPPORTED_TYPES }.map { manga ->
             SManga.create().apply {
-                url = "/series/${manga.type}/${manga.id}/${manga.slug}"
+                url = "https://prochan.net/series/${manga.type}/${manga.id}/${manga.slug}"
                 title = manga.title
                 thumbnail_url = (manga.coverImageApp?.desktop ?: manga.coverImage)?.let {
-                    if (it.startsWith("/")) {
+                    if (it.startsWith("https://prochan.net/")) {
                         manga.cdn?.let { cdn ->
-                            "https://$cdn.$domain$it"
+                            "https://prochan.net/"
                         }
                     } else {
                         it
@@ -182,7 +182,7 @@ class ProChan :
             }
             .map { manga ->
                 SManga.create().apply {
-                    url = "/series/${manga.type}/${manga.id}/${manga.slug}"
+                    url = "https://prochan.net/series/${manga.type}/${manga.id}/${manga.slug}"
                     title = manga.title
                     thumbnail_url = (manga.coverImageApp?.desktop ?: manga.coverImage)?.let {
                         if (it.startsWith("/")) {
@@ -203,16 +203,16 @@ class ProChan :
     private var lastFilters: FilterList? = null
 
     override fun fetchSearchManga(page: Int, query: String, filters: FilterList): Observable<MangasPage> {
-        if (query.startsWith("https://")) {
+        if (query.startsWith("https://prochan.net/")) {
             val url = query.toHttpUrl()
             val path = url.pathSegments
-            if ((url.host == domain || url.host == "prochan.pro" || url.host == "prochan.net") && path.size >= 4 && path[0] == "series") {
+            if ((url.host == domain || url.host == "https://prochan.net/" || url.host == "prochan.net") && path.size >= 4 && path[0] == "series") {
                 val type = path[1]
                 val mangaId = path[2]
                 val slug = path[3]
 
                 val manga = SManga.create().apply {
-                    this@apply.url = "/series/$type/$mangaId/$slug"
+                    this@apply.url = "https://prochan.net/series/$type/$mangaId/$slug"
                 }
 
                 return fetchMangaDetails(manga).map {
@@ -244,7 +244,7 @@ class ProChan :
         val manga = seriesData.series
 
         return SManga.create().apply {
-            url = "/series/${manga.type}/${manga.id}/${manga.slug}"
+            url = "https://prochan.net/series/${manga.type}/${manga.id}/${manga.slug}"
             title = manga.title
             artist = manga.metadata.artist.joinToString()
             author = manga.metadata.author.joinToString()
@@ -295,7 +295,7 @@ class ProChan :
             thumbnail_url = (manga.coverImageApp?.desktop ?: manga.metadata.coverImage)?.let {
                 if (it.startsWith("/")) {
                     manga.cdn?.let { cdn ->
-                        "https://$cdn.$domain$it"
+                        "https://prochan.net/"
                     }
                 } else {
                     it
