@@ -1,8 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <application>
+<manifest xmlns:android="http://android.com"
+    package="eu.kanade.tachiyomi.extension.ar.mangapro">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <application
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="ProComic Pro">
+
         <activity
-            android:name=".ar.mangapro.UrlActivity"
+            android:name=".UrlActivity"
             android:excludeFromRecents="true"
             android:exported="true"
             android:theme="@android:style/Theme.NoDisplay">
@@ -12,9 +21,55 @@
                 <category android:name="android.intent.category.BROWSABLE"/>
 
                 <data android:host="prochan.net" />
+                <data android:host="procomic.pro" />
                 <data android:scheme="https" />
+                
                 <data android:pathPattern="/series/..*" />
+                <data android:pathPattern="/manhua/..*" />
+                <data android:pathPattern="/manga/..*" />
             </intent-filter>
         </activity>
+
+        <meta-data
+            android:name="tachiyomi.extension.class"
+            android:value=".Procomic" />
+
+        <meta-data
+            android:name="tachiyomi.extension.version"
+            android:value="1" />
+
+        <meta-data
+            android:name="tachiyomi.extension.nsfw"
+            android:value="0" />
+            
+        <meta-data
+            android:name="tachiyomi.extension.language"
+            android:value="ar" />
+
+    </application>
+</manifest>
+            </intent-filter>
+        </activity>
+
+        <!-- تعريف الكلاس الرئيسي للإضافة (Procomic.kt) ليتعرف عليه تاتشيومي -->
+        <meta-data
+            android:name="tachiyomi.extension.class"
+            android:value=".Procomic" />
+
+        <!-- إصدار الإضافة (قم بزيادته عند كل تحديث) -->
+        <meta-data
+            android:name="tachiyomi.extension.version"
+            android:value="1" />
+
+        <!-- تحديد إذا كانت الإضافة تحتوي على محتوى للكبار (0=لا، 1=نعم) -->
+        <meta-data
+            android:name="tachiyomi.extension.nsfw"
+            android:value="0" />
+
+        <!-- لغة المحتوى -->
+        <meta-data
+            android:name="tachiyomi.extension.language"
+            android:value="ar" />
+
     </application>
 </manifest>
