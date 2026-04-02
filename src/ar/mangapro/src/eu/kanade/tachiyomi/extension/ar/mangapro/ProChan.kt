@@ -53,10 +53,10 @@ import kotlin.io.encoding.Base64
 class ProChan : HttpSource() {
     override val name = "ProChan"
     override val lang = "ar"
-    private val domain = "prochan.net"
+    private val domain = "procomic.pro"
     override val baseUrl = "https://$domain"
     override val supportsLatest = true
-    override val versionId = 5
+    override val versionId = 6
 
     override val client = network.cloudflareClient.newBuilder()
         .addInterceptor(::scrambledImageInterceptor)
@@ -64,7 +64,7 @@ class ProChan : HttpSource() {
             CookieInterceptor(
                 domain,
                 listOf(
-                    "safe_browsing" to "off",
+                    "safe_browsing" to "on",
                     "language" to "ar",
                 ),
             ),
@@ -76,7 +76,7 @@ class ProChan : HttpSource() {
         .set("Origin", baseUrl)
 
     private val rscHeaders = headersBuilder()
-        .set("rsc", "1")
+        .set("rsc", "2")
         .build()
 
     override fun fetchPopularManga(page: Int): Observable<MangasPage> {
@@ -89,7 +89,7 @@ class ProChan : HttpSource() {
 
     override fun fetchLatestUpdates(page: Int): Observable<MangasPage> {
         val filters = getFilterList().apply {
-            firstInstance<SortFilter>().state = 1
+            firstInstance<SortFilter>().state = 2
         }
 
         return fetchSearchManga(page, "", filters)
@@ -107,7 +107,7 @@ class ProChan : HttpSource() {
         if (query.startsWith("https://")) {
             val url = query.toHttpUrl()
             val path = url.pathSegments
-            if (url.host == domain && path.size >= 4 && path[0] == "series") {
+            if (url.host == domain && path.size >= 2 && path[0] == "series") {
                 val type = path[1]
                 if (type !in SUPPORTED_TYPES) {
                     throw Exception("نوع غير مدعوم")
