@@ -1,20 +1,61 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <application>
-        <activity
-            android:name=".ar.mangapro.UrlActivity"
-            android:excludeFromRecents="true"
-            android:exported="true"
-            android:theme="@android:style/Theme.NoDisplay">
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW"/>
-                <category android:name="android.intent.category.DEFAULT"/>
-                <category android:name="android.intent.category.BROWSABLE"/>
+<manifest xmlns:android="http://android.com"
+    package="eu.kanade.tachiyomi.extension.ar.mangapro">
 
-                <data android:host="prochan.net" />
+    <!-- الأذونات اللازمة للعمل -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <application
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="ProComic Pro">
+
+        <!-- نشاط معالجة الروابط (UrlActivity) لفتح المانجا مباشرة من المتصفح -->
+        <activity
+            android:name=".UrlActivity"
+            android:exported="true"
+            android:label="ProComic Link Handler"
+            android:theme="@android:style/Theme.NoDisplay">
+            
+            <intent-filter android:priority="1">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                
+                <data android:scheme="http" />
                 <data android:scheme="https" />
-                <data android:pathPattern="/series/..*" />
+                
+                <!-- النطاقات المدعومة (يمكن إضافة نطاقات أخرى هنا) -->
+                <data android:host="procomic.pro" />
+                <data android:host="www.procomic.pro" />
+                
+                <!-- مسارات المانجا والفصول في موقع بروكوميك -->
+                <data android:pathPrefix="/series/" />
+                <data android:pathPrefix="/manga/" />
+                <data android:pathPrefix="/manhua/" />
             </intent-filter>
         </activity>
+
+        <!-- تعريف الكلاس الرئيسي للإضافة (Procomic.kt) ليتعرف عليه تاتشيومي -->
+        <meta-data
+            android:name="tachiyomi.extension.class"
+            android:value=".Procomic" />
+
+        <!-- إصدار الإضافة (قم بزيادته عند كل تحديث) -->
+        <meta-data
+            android:name="tachiyomi.extension.version"
+            android:value="1" />
+
+        <!-- تحديد إذا كانت الإضافة تحتوي على محتوى للكبار (0=لا، 1=نعم) -->
+        <meta-data
+            android:name="tachiyomi.extension.nsfw"
+            android:value="0" />
+
+        <!-- لغة المحتوى -->
+        <meta-data
+            android:name="tachiyomi.extension.language"
+            android:value="ar" />
+
     </application>
 </manifest>
