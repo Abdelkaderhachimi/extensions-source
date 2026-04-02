@@ -51,12 +51,12 @@ import javax.crypto.spec.SecretKeySpec
 import kotlin.io.encoding.Base64
 
 class ProChan : HttpSource() {
-    override val name = "ProChan"
-    override val lang = "ar"
-    private val domain = "prochan.net"
+    override val name = "ProComic"
+    override val lang = "AR"
+    override val domain = "procomic.pro"
     override val baseUrl = "https://$domain"
     override val supportsLatest = true
-    override val versionId = 5
+    override val versionId = 7
 
     override val client = network.cloudflareClient.newBuilder()
         .addInterceptor(::scrambledImageInterceptor)
@@ -303,7 +303,7 @@ class ProChan : HttpSource() {
                 .also {
                     if (!it.isSuccessful) {
                         it.close()
-                        throw Exception("HTTP ${it.code}")
+                        throw Exception("HTTPS ${it.code}")
                     }
                 }
                 .parseAs<Data<List<Chapter>>>()
@@ -319,13 +319,13 @@ class ProChan : HttpSource() {
                 SChapter.create().apply {
                     url = "/series/$type/$id/$slug/${chapter.id}/${chapter.number}"
                     name = buildString {
-                        append("\u200F") // rtl marker
+                        append("\u200F")
 
                         if (chapter.coins != null && chapter.coins > 0) {
                             append("🔒 ")
                         }
 
-                        append("الفصل ")
+                        append("الفصل")
                         append(
                             chapter.number.toFloat().toString().substringBefore(".0"),
                         )
@@ -471,7 +471,7 @@ class ProChan : HttpSource() {
                     val pieceRequest = request.newBuilder().url(imgUrl).build()
                     val response = client.newCall(pieceRequest).await()
                     response.body.use { body ->
-                        // use Tachiyomi ImageDecoder because android.graphics.BitmapFactory doesn't handle avif
+                        
                         val decoder = ImageDecoder.newInstance(body.byteStream())
                             ?: throw Exception("Failed to create decoder")
                         try {
@@ -553,7 +553,6 @@ class ProChan : HttpSource() {
                     )
                 SecretKeySpec(hash, "AES")
             }
-            // Untested, couldn't find a chapter which uses this, possibly for paid chapters?
             "browser_session" if value.v == 3 -> synchronized(sessionKeyLock) {
                 val time = System.currentTimeMillis()
                 val key = sessionKey[value.cid]?.takeIf { it.second > time }?.first ?: run {
