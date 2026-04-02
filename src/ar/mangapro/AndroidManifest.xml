@@ -2,7 +2,6 @@
 <manifest xmlns:android="http://android.com"
     package="eu.kanade.tachiyomi.extension.ar.mangapro">
 
-    <!-- الأذونات اللازمة للعمل -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
@@ -11,29 +10,44 @@
         android:icon="@mipmap/ic_launcher"
         android:label="ProComic Pro">
 
-        <!-- نشاط معالجة الروابط (UrlActivity) لفتح المانجا مباشرة من المتصفح -->
         <activity
             android:name=".UrlActivity"
+            android:excludeFromRecents="true"
             android:exported="true"
-            android:label="ProComic Link Handler"
             android:theme="@android:style/Theme.NoDisplay">
-            
-            <intent-filter android:priority="1">
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                
-                <data android:scheme="http" />
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+
+                <data android:host="prochan.net" />
+                <data android:host="procomic.pro" />
                 <data android:scheme="https" />
                 
-                <!-- النطاقات المدعومة (يمكن إضافة نطاقات أخرى هنا) -->
-                <data android:host="procomic.pro" />
-                <data android:host="www.procomic.pro" />
-                
-                <!-- مسارات المانجا والفصول في موقع بروكوميك -->
-                <data android:pathPrefix="/series/" />
-                <data android:pathPrefix="/manga/" />
-                <data android:pathPrefix="/manhua/" />
+                <data android:pathPattern="/series/..*" />
+                <data android:pathPattern="/manhua/..*" />
+                <data android:pathPattern="/manga/..*" />
+            </intent-filter>
+        </activity>
+
+        <meta-data
+            android:name="tachiyomi.extension.class"
+            android:value=".Procomic" />
+
+        <meta-data
+            android:name="tachiyomi.extension.version"
+            android:value="1" />
+
+        <meta-data
+            android:name="tachiyomi.extension.nsfw"
+            android:value="0" />
+            
+        <meta-data
+            android:name="tachiyomi.extension.language"
+            android:value="ar" />
+
+    </application>
+</manifest>
             </intent-filter>
         </activity>
 
