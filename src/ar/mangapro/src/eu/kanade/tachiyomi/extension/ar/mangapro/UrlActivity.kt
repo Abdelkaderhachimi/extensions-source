@@ -10,22 +10,17 @@ import kotlin.system.exitProcess
 class UrlActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val pathSegments = intent?.data?.pathSegments
-        if (pathSegments != null && pathSegments.size >= 2) {
-            val mainIntent = Intent().apply {
-                action = "eu.kanade.tachiyomi.SEARCH"
-                putExtra("query", pathSegments.last())
-                putExtra("filter", packageName)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
 
-            try {
-                startActivity(mainIntent)
-            } catch (e: ActivityNotFoundException) {
-                Log.e("UrlActivity", e.toString())
-            }
-        } else {
-            Log.e("UrlActivity", "Could not parse URI from intent $intent")
+        val mainIntent = Intent().apply {
+            action = "eu.kanade.tachiyomi.SEARCH"
+            putExtra("query", intent.data.toString())
+            putExtra("filter", packageName)
+        }
+
+        try {
+            startActivity(mainIntent)
+        } catch (e: ActivityNotFoundException) {
+            Log.e("ProChan", "Unable to launch activity", e)
         }
 
         finish()
