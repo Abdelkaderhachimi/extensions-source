@@ -11,8 +11,8 @@
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
 
-                <data android:host="prochan.net" />
-                <data android:scheme="https" />
+                <data android:host="procomic.pro" />
+                <data android:scheme="https://" />
                 <data android:pathPattern="/series/..*" />
             </intent-filter>
         </activity>
